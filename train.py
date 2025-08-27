@@ -2,7 +2,7 @@ import os
 import argparse
 import torchaudio
 import torch
-import tqdm
+from tqdm import tqdm
 import json
 import sys
 
@@ -27,12 +27,12 @@ os.environ['PYTORCH_CUDA_ALLOC_CONF'] = "expandable_segments:True"
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=20)
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--learning-rate", type=float, default=0.001)
 
     # Data directories
     parser.add_argument("--train_dir", type=str, default=SM_CHANNEL_TRAINING)
-    parser.add_argument("--val_dir", type=str, default=SM_CHANNEL_VALIDATION)
+    parser.add_argument("--val-dir", type=str, default=SM_CHANNEL_VALIDATION)
     parser.add_argument("--test-dir", type=str, default=SM_CHANNEL_TEST)
     parser.add_argument("--model-dir", type=str, default=SM_MODEL_DIR)
 
@@ -68,8 +68,10 @@ def main():
         batch_size=args.batch_size
     )
 
-    print(f"Training DSV path: {os.path.join(args.train_dir, 'train_sent_emo.csv')}")
-    print(f"Training video path: {os.path.join(args.train_dir, 'train_splits')}")
+    print(
+        f"Training DSV path: {os.path.join(args.train_dir, 'train_sent_emo.csv')}")
+    print(
+        f"Training video path: {os.path.join(args.train_dir, 'train_splits')}")
 
     model = MultimodalSentimentModel().to(device)
     trainer = MultimodalTrainer(model, train_loader, val_loader)
@@ -83,7 +85,8 @@ def main():
 
     for epoch in tqdm(range(args.epochs), desc="Epochs"):
         train_loss = trainer.train_epoch()
-        val_loss, val_metrics = trainer.evaluate(val_loader)  # By default it will validate
+        val_loss, val_metrics = trainer.evaluate(
+            val_loader)  # By default it will validate
 
         # Track the metrics
         metrics_data["train_losses"].append(train_loss["total"])
@@ -95,10 +98,14 @@ def main():
             "metrics": [
                 {"Name": "train:loss", "Value": train_loss["total"]},
                 {"Name": "validation:loss", "Value": val_loss["total"]},
-                {"Name": "validation:emotion_precision", "Value": val_metrics["emotion_precision"]},
-                {"Name": "validation:emotion_accuracy", "Value": val_metrics["emotion_accuracy"]},
-                {"Name": "validation:sentiment_precision", "Value": val_metrics["sentiment_precision"]},
-                {"Name": "validation:sentiment_accuracy", "Value": val_metrics["sentiment_accuracy"]},
+                {"Name": "validation:emotion_precision",
+                    "Value": val_metrics["emotion_precision"]},
+                {"Name": "validation:emotion_accuracy",
+                    "Value": val_metrics["emotion_accuracy"]},
+                {"Name": "validation:sentiment_precision",
+                    "Value": val_metrics["sentiment_precision"]},
+                {"Name": "validation:sentiment_accuracy",
+                    "Value": val_metrics["sentiment_accuracy"]},
             ]
         }))
 
@@ -109,23 +116,54 @@ def main():
         # Save the best model
         if val_loss["total"] < best_val_loss:
             best_val_loss = val_loss["total"]
-            torch.save(model.state_dict(), os.path.join(args.model_dir, "model.pth"))
-
+            torch.save(model.state_dict(), os.path.join(
+                args.model_dir, "model.pth"))
 
     # After the training is complete, evaluate on test set
-    print("Evaluating on test set...") 
-    test_loss, test_metrics = trainer.evaluate(test_loader, phase="test")
-    metrics_data["test_loss"] = test_loss["total"]
+    # print("Evaluating on test set...")
+    # test_loss, test_metrics = trainer.evaluate(test_loader, phase="test")
+    # metrics_data["test_loss"] = test_loss["total"]
 
-    print(json.dumps({
-            "metrics": [
-                {"Name": "test:loss", "Value": test_loss["total"]},
-                {"Name": "test:emotion_accuracy", "Value": test_metrics["emotion_accuracy"]},
-                {"Name": "test:sentiment_accuracy", "Value": test_metrics["sentiment_accuracy"]},
-                {"Name": "test:emotion_precision", "Value": test_metrics["emotion_precision"]},
-                {"Name": "test:sentiment_precision", "Value": test_metrics["sentiment_precision"]},
-            ]
-        }))
+    # print(json.dumps({
+    #     "metrics": [
+    #         {"Name": "test:loss", "Value": test_loss["total"]},
+    #         {"Name": "test:emotion_accuracy",
+    #          "Value": test_metrics["emotion_accuracy"]},
+    #         {"Name": "test:sentiment_accuracy",
+    #          "Value": test_metrics["sentiment_accuracy"]},
+    #         {"Name": "test:emotion_precision",
+    #          "Value": test_metrics["emotion_precision"]},
+    #         {"Name": "test:sentiment_precision",
+    #          "Value": test_metrics["sentiment_precision"]},
+    #     ]
+    # }))
+
+        # After the training is complete, evaluate on test set
+    print("Evaluating on test set...")
+
+    if test_loader is not None and len(test_loader) > 0:
+        result = trainer.evaluate(test_loader, phase="test")
+        if result is not None:
+            test_loss, test_metrics = result
+            metrics_data["test_loss"] = test_loss["total"]
+
+            print(json.dumps({
+                "metrics": [
+                    {"Name": "test:loss", "Value": test_loss["total"]},
+                    {"Name": "test:emotion_accuracy",
+                     "Value": test_metrics.get("emotion_accuracy", 0)},
+                    {"Name": "test:sentiment_accuracy",
+                     "Value": test_metrics.get("sentiment_accuracy", 0)},
+                    {"Name": "test:emotion_precision",
+                     "Value": test_metrics.get("emotion_precision", 0)},
+                    {"Name": "test:sentiment_precision",
+                     "Value": test_metrics.get("sentiment_precision", 0)},
+                ]
+            }))
+        else:
+            print("⚠️ Warning: evaluate() returned None, skipping test metrics.")
+    else:
+        print("⚠️ No test data found, skipping test evaluation.")
 
 
 if __name__ == "__main__":

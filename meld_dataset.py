@@ -167,6 +167,10 @@ class MELDDataset(Dataset):
 def collate_function(batch):
     # Filters out the None samples
     batch = list(filter(None, batch))
+
+    if len(batch) == 0:
+        return None  # Explicitly mark empty batch
+
     return torch.utils.data.dataloader.default_collate(batch)
 
 
