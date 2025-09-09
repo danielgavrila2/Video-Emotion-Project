@@ -10,3 +10,4 @@ sagemaker==2.237.0
 soundfile==0.12.1
 tensorboard==2.18.0
 scikit-metrics==0.1.0
+openai-whisper
